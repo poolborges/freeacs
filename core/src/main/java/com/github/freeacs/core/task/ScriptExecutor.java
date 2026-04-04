@@ -14,6 +14,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -132,7 +136,7 @@ public class ScriptExecutor extends DBIShare {
     List<ScriptExecution> executionList =
         executions.getNotStartedExecutions(getLatestACS(), properties.getShellScriptPoolSize());
 
-    List<Thread> threads = new ArrayList<>();
+
     // Organize all script-executions pr fusion-user - they must be executed in separate
     // shell-deamons
     Map<String, List<ScriptExecution>> userMap = new HashMap<>();
@@ -147,6 +151,8 @@ public class ScriptExecutor extends DBIShare {
       list.add(se);
     }
 
+    ExecutorService executor = Executors.newFixedThreadPool(properties.getShellScriptPoolSize());
+    try {
     for (Entry<String, List<ScriptExecution>> entry : userMap.entrySet()) {
       List<ScriptExecution> userExecutionList = entry.getValue();
       for (ScriptExecution se : userExecutionList) {
@@ -170,26 +176,27 @@ public class ScriptExecutor extends DBIShare {
             logger.debug("Found shell daemon, will initiate execution");
             se.setStartTms(new Date());
             executions.updateExecution(se);
-            ScriptDaemonRunnable ser = new ScriptDaemonRunnable(executions, se, shellDaemon);
-            Thread t = new Thread(ser);
-            t.start();
-            threads.add(t);
+            executor.submit(new ScriptDaemonRunnable(executions, se, shellDaemon));
           }
         }
       }
-      // wait
-      for (Thread t : threads) {
-        try {
-          t.join();
-        } catch (InterruptedException e) {
-          logger.error("ScriptExecutor interrompido enquanto aguardava threads filhas", e);
-          // BOA PRÁTICA: Restaura o estado de interrupção para que quem chamou saiba que foi interrompido
-          Thread.currentThread().interrupt();
-          // Opcional: interromper as threads filhas se a principal for cancelada
-          break;
-        }
-      }
-
     }
+  } finally {
+    // Graceful shutdown of the executor
+    executor.shutdown();
+    try {
+      //Lock to wait all script to finish  or timeout
+      logger.debug("Waiting for all scripts to finish or timeout (10 Minutes)");
+      if (!executor.awaitTermination(10, TimeUnit.MINUTES)) {
+        logger.warn("Timeout reached: forcing shutdown of remaining script threads");
+        executor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      logger.error("ScriptExecutor interrupted while waiting for child threads to finish", e);
+      executor.shutdownNow();
+      // Restore interrupt status as per Java best practices
+      Thread.currentThread().interrupt();
+    }
+  }
   }
 }
