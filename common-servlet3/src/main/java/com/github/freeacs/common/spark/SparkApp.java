@@ -12,7 +12,7 @@ public abstract class SparkApp {
     protected final Config config;
     protected final DataSource datasource;
 
-    public SparkApp() {
+    protected SparkApp() {
         config = ConfigFactory.load();
         Spark.port(config.getInt("server.port"));
         datasource = HikariDataSourceHelper.dataSource(config.getConfig("main"));

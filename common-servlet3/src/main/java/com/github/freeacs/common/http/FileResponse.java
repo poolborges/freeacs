@@ -27,10 +27,12 @@ public class FileResponse extends ServletOutputStream {
     outputStream.write(i);
   }
 
+  @Override
   public void flush() throws IOException {
     outputStream.flush();
   }
 
+  @Override
   public void close() throws IOException {
     outputStream.close();
   }

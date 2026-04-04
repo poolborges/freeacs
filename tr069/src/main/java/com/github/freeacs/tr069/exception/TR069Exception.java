@@ -3,7 +3,6 @@ package com.github.freeacs.tr069.exception;
 import lombok.Getter;
 import lombok.Setter;
 
-import javax.servlet.http.HttpServletResponse;
 import java.io.Serial;
 
 /** SA = Session Aborted. */
@@ -14,7 +13,7 @@ public class TR069Exception extends Exception {
   private static final long serialVersionUID = 7288005181389170348L;
 
   /** Default is 200 OK. */
-  private Integer HTTPErrorCode = HttpServletResponse.SC_OK;
+  private Integer HTTPErrorCode = 200;
 
   private String errorMsg;
   private TR069ExceptionShortMessage shortMsg;
@@ -35,6 +34,7 @@ public class TR069Exception extends Exception {
     this.HTTPErrorCode = HTTPErrorCode;
   }
 
+  @Override
   public String getMessage() {
     return errorMsg;
   }

@@ -7,7 +7,7 @@
         <version>3.1-SNAPSHOT</version>
     </parent>
     <artifactId>cache</artifactId>
-    <name>Archetype - cache</name>
+    <name>cache</name>
     <url>http://maven.apache.org</url>
     <dependencies>
         <dependency>

@@ -2,10 +2,7 @@ package com.github.freeacs.common.http;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
@@ -127,12 +124,12 @@ public class SimpleResponseWrapper implements HttpServletResponse {
 
   @Override
   public Collection<String> getHeaders(String name) {
-    return null;
+    return new ArrayList<>();
   }
 
   @Override
   public Collection<String> getHeaderNames() {
-    return null;
+    return new ArrayList<>();
   }
 
   @Override
@@ -156,11 +153,11 @@ public class SimpleResponseWrapper implements HttpServletResponse {
   }
 
   public byte[] getResponseAsBytes() {
-    String stringResponse = this.stringResponse.toString();
-    if (stringResponse.isEmpty()) {
+    String stringResponseString = this.stringResponse.toString();
+    if (stringResponseString.isEmpty()) {
       return fileResponse.getBytes();
     }
-    return stringResponse.getBytes();
+    return stringResponseString.getBytes();
   }
 
   @Override
