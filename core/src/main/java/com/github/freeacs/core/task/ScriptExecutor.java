@@ -132,6 +132,7 @@ public class ScriptExecutor extends DBIShare {
     List<ScriptExecution> executionList =
         executions.getNotStartedExecutions(getLatestACS(), properties.getShellScriptPoolSize());
 
+    List<Thread> threads = new ArrayList<>();
     // Organize all script-executions pr fusion-user - they must be executed in separate
     // shell-deamons
     Map<String, List<ScriptExecution>> userMap = new HashMap<>();
@@ -172,9 +173,23 @@ public class ScriptExecutor extends DBIShare {
             ScriptDaemonRunnable ser = new ScriptDaemonRunnable(executions, se, shellDaemon);
             Thread t = new Thread(ser);
             t.start();
+            threads.add(t);
           }
         }
       }
+      // wait
+      for (Thread t : threads) {
+        try {
+          t.join();
+        } catch (InterruptedException e) {
+          logger.error("ScriptExecutor interrompido enquanto aguardava threads filhas", e);
+          // BOA PRÁTICA: Restaura o estado de interrupção para que quem chamou saiba que foi interrompido
+          Thread.currentThread().interrupt();
+          // Opcional: interromper as threads filhas se a principal for cancelada
+          break;
+        }
+      }
+
     }
   }
 }
