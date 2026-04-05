@@ -5,5 +5,5 @@ java -jar \
 -XX:MaxMetaspaceSize=256m \
 -XX:CompressedClassSpaceSize=128m \
 -Dlogging.config=config/logback.xml \
--Dspring.config.location=config/application.conf \
+-Dspring.config.location=config/application-prod.properties \
 syslog.jar
