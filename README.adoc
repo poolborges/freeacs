@@ -1,0 +1,28 @@
+= KriolOS ACS
+
+
+== Components
+
+web
+
+* http://localhost:8081
+* STACK: Embedded Jetty, Hazelcast
+* PROVIDE: UI
+
+webservice
+
+* http://localhost:8088/webservice
+** http://localhost:8088/webservice/ws/acs.wsdl
+* STACK: Springboot, Hazelcast,
+* PROVIDE: WebService(SOAP)
+
+
+TR069
+
+* http://localhost:8085
+* http://localhost:8085/tr069
+
+Syslog Server
+
+* http://localhost:8086/syslog/ok
+* STACK: Springboot
