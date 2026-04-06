@@ -40,7 +40,7 @@ public class NoSecurityProvisioningTest extends AbstractProvisioningTest impleme
     public static class DataSourceInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
         @Override
         public void initialize(@NotNull ConfigurableApplicationContext applicationContext) {
-            MysqlDataSourceInitializer.initialize(mysql, applicationContext);
+            MysqlDataSourceInitializer.initialize(databaseTestContainer, applicationContext);
         }
     }
 

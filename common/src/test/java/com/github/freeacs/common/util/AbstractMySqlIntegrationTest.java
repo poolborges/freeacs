@@ -1,43 +1,94 @@
 package com.github.freeacs.common.util;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.mariadb.jdbc.MariaDbDataSource;
+import org.junit.jupiter.api.BeforeEach;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.sql.Connection;
-import java.sql.SQLException;
+import javax.sql.DataSource;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
-@Testcontainers
 public interface AbstractMySqlIntegrationTest {
 
-    @Container
-    MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.3.0");
+    // Singleton Container: Shared across all test classes for performance
+    MySQLContainer<?> databaseTestContainer = new MySQLContainer<>("mysql:8.4.0")
+            .withDatabaseName("freeacs")
+            .withUsername("freeacs")
+            .withPassword("freeacs");
+
+    class DataSourceHolder {
+        private static HikariDataSource dataSource;
+
+        static synchronized DataSource get() throws SQLException {
+            if (!databaseTestContainer.isRunning()) {
+                databaseTestContainer.start();
+            }
+            if (dataSource == null) {
+                HikariConfig config = new HikariConfig();
+                config.setJdbcUrl(databaseTestContainer.getJdbcUrl());
+                config.setUsername(databaseTestContainer.getUsername());
+                config.setPassword(databaseTestContainer.getPassword());
+                config.setDriverClassName(databaseTestContainer.getDriverClassName());
+                config.setMaximumPoolSize(10);
+                dataSource = new HikariDataSource(config);
+            }
+            return dataSource;
+        }
+    }
 
     @BeforeAll
     static void beforeAll() throws Exception {
-        mysql.start();
-        MariaDbDataSource dataSource = getDataSource();
-        Connection connection = dataSource.getConnection();
-        DBScriptUtility.runScript("mysql/install.sql", connection);
-        DBScriptUtility.runScript("seed.sql", connection);
-        connection.close();
+        DataSource ds = DataSourceHolder.get();
+        try (Connection conn = ds.getConnection();
+             Statement st = conn.createStatement()) {
+
+            // Only run install script if the database is empty
+            ResultSet rs = st.executeQuery("SHOW TABLES");
+            if (!rs.next()) {
+                // This creates tables and might insert base users
+                DBScriptUtility.runScript("mysql/install.sql", conn);
+            }
+        }
     }
+
+    @BeforeEach
+    default void resetDatabase() throws Exception {
+        try (Connection conn = getDataSource().getConnection();
+             Statement st = conn.createStatement()) {
+
+            // Disable Foreign Key checks to allow truncating tables with dependencies
+            st.execute("SET FOREIGN_KEY_CHECKS = 0");
+
+            ResultSet rs = st.executeQuery("SHOW TABLES");
+            List<String> tables = new ArrayList<>();
+            while (rs.next()) {
+                String tableName = rs.getString(1);
+                // SKIP truncating the 'user_' table because it contains base data from install.sql
+                // and is required as a foreign key for 'filestore' and other tables.
+                if (!tableName.equalsIgnoreCase("user_")) {
+                    tables.add(tableName);
+                }
+            }
+
+            for (String table : tables) {
+                st.execute("TRUNCATE TABLE " + table);
+            }
+
+            // Re-enable Foreign Key checks
+            st.execute("SET FOREIGN_KEY_CHECKS = 1");
+
+            // Restore other transient test data
+            DBScriptUtility.runScript("seed.sql", conn);
+        }
+    }
+
 
     @NotNull
-    static MariaDbDataSource getDataSource() throws SQLException {
-        MariaDbDataSource dataSource = new MariaDbDataSource();
-        dataSource.setUrl(String.format("jdbc:mariadb://%s:%d/%s", mysql.getHost(), mysql.getFirstMappedPort(), mysql.getDatabaseName()));
-        dataSource.setUser(mysql.getUsername());
-        dataSource.setPassword(mysql.getPassword());
-        return dataSource;
-    }
-
-    @AfterAll
-    static void afterAll() {
-        mysql.stop();
+    static DataSource getDataSource() throws SQLException {
+        return DataSourceHolder.get();
     }
 }

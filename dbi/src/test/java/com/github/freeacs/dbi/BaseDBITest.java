@@ -2,12 +2,13 @@ package com.github.freeacs.dbi;
 
 import com.github.freeacs.common.util.AbstractMySqlIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
-import org.mariadb.jdbc.MariaDbDataSource;
+import javax.sql.DataSource;
+
 
 public abstract class BaseDBITest implements AbstractMySqlIntegrationTest {
   protected ACS acs;
   protected Syslog syslog;
-  protected MariaDbDataSource dataSource;
+  protected DataSource dataSource;
 
   @BeforeEach
   public void init() throws Exception {

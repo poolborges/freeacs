@@ -25,7 +25,7 @@ public class WebserviceIntegrationTest implements AbstractMySqlIntegrationTest {
   public static class DataSourceInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     @Override
     public void initialize(ConfigurableApplicationContext applicationContext) {
-      MysqlDataSourceInitializer.initialize(mysql, applicationContext);
+      MysqlDataSourceInitializer.initialize(databaseTestContainer, applicationContext);
     }
   }
 
