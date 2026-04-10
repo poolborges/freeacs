@@ -1,26 +1,7 @@
 FreeACS Fusion - DBI
 ====================
-This project is a just a part of the whole product. Get the full picture here: 
-http://www.freeacs.com/
+This project is a just a part of the whole product. 
 
-Dependencies
-------------
-https://github.com/freeacs/common.git  
-I recommend setting up this project as a Project reference
-
-https://github.com/freeacs/lib.git  
-The following jarfiles are necessary on the classpath:
-* jcommon-1.0.21.jar
-* jfreechar-1.0.17.jar
-* mysql-connector-java-5.1.28-bin.jar
-
-Eclipse setup
--------------
-Git view: Import git repo  
-Git view: Import projects from git repo, import as general project    
-Package/Navigator view: Change project facets to Java 1.7  
-Package/Navigator view: Project reference to the freeacs-common project    
-Package/Navigator view: Add libs to classpath from freeacs-lib "project"   
 
 Overview
 --------

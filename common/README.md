@@ -1,19 +1,6 @@
 FreeACS Fusion - Common
 =======================
-This project is a just a part of the whole product. Get the full picture here: 
-http://www.freeacs.com/
-
-Dependencies
-------------
-Junit in compile time classpath  
-MySQL-driver in runtime classpath 
-
-Eclipse setup
--------------
-Git view: Import git repo
-Git view: Import projects from git repo, import as general project
-Package/Navigator view: Change project facets to Java 1.7
-Add Junit to classpath (I have compiled with v4.1 - but v3.8 will also work)
+This project is a just a part of the whole product. 
 
 Overview
 --------
