@@ -24,11 +24,10 @@ public class KickTest {
 
   @Test
   public void testPublicIpCheckEnabled() throws MalformedURLException {
-    // When:
-    Properties properties =
-        new Properties(
-            ConfigFactory.empty()
-                .withValue("kick.check-public-ip", ConfigValueFactory.fromAnyRef(true)));
+    // Given:
+    Properties properties = new Properties();
+    properties.setCheckPublicIp(true);
+
     String ip = "http://192.168.0.1";
     // When:
     boolean isPublic = new Kick().checkIfPublicIP(ip, properties);
@@ -38,11 +37,9 @@ public class KickTest {
 
   @Test
   public void testPublicIpCheckDisabled() throws MalformedURLException {
-    // When:
-    Properties properties =
-        new Properties(
-            ConfigFactory.empty()
-                .withValue("kick.check-public-ip", ConfigValueFactory.fromAnyRef(false)));
+    // Given
+    Properties properties = new Properties();
+    properties.setCheckPublicIp(false);
     String ip = "http://192.168.0.1";
     // When:
     boolean isPublic = new Kick().checkIfPublicIP(ip, properties);
@@ -61,10 +58,8 @@ public class KickTest {
   @Disabled("This test is not working")
   public void checkThatKickTriesToKickifPublicIpCheckIsDisabled() throws MalformedURLException {
     // Given:
-    Properties properties =
-        new Properties(
-            ConfigFactory.empty()
-                .withValue("kick.check-public-ip", ConfigValueFactory.fromAnyRef(false)));
+    Properties properties = new Properties();
+    properties.setCheckPublicIp(false);
     Unit unit = new Unit("unitId");
     Map<String, UnitParameter> parameters = new HashMap<>();
     parameters.put(

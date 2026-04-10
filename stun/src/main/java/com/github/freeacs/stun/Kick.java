@@ -9,26 +9,25 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.auth.params.AuthPNames;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.params.AuthPolicy;
-import org.apache.http.conn.ConnectTimeoutException;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
-import org.apache.http.params.CoreConnectionPNames;
+
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 
 public class Kick {
   @Data
@@ -39,6 +38,16 @@ public class Kick {
   }
 
   private static final Kick kickSingleton = new Kick();
+
+  private final RestClient defaultRestClient = RestClient.builder()
+          .requestFactory(new HttpComponentsClientHttpRequestFactory(
+                  HttpClients.custom()
+                          .setDefaultRequestConfig(RequestConfig.custom()
+                                  .setConnectTimeout(Timeout.ofMilliseconds(20000))
+                                  .setResponseTimeout(Timeout.ofMilliseconds(20000))
+                                  .build())
+                          .build()))
+          .build();
 
   public static KickResponse kick(Unit unit, Properties properties)
       throws MalformedURLException, SQLException {
@@ -125,39 +134,37 @@ public class Kick {
 
   protected KickResponse kickUsingTCP(Unit unit, String crUrl, String crPass, String crUser)
       throws MalformedURLException {
-    DefaultHttpClient client = new DefaultHttpClient();
-    HttpGet get = new HttpGet(crUrl);
-    get.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, 20000);
-    get.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 20000);
-    client.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(0, true));
-    int statusCode;
+
+    RestClient restClient = null;
+    HttpStatusCode statusCode;
     if (crUser != null && crPass != null) {
-      get = authenticate(client, get, crUrl, crUser, crPass);
-      log.debug(
-          unit.getId()
-              + " had a password and username, hence the kick will be executed with authentication (digest/basic)");
+      try {
+        restClient = createSecureClient(crUrl, crUser, crPass);
+        log.debug(unit.getId() + ": kicking with authentication (digest/basic)");
+      } catch (MalformedURLException e) {
+        return new KickResponse(false, "Invalid URL: " + crUrl);
+      }
+    } else {
+      // Usa o cliente padrão, sem overhead de credenciais
+      restClient = defaultRestClient;
+      log.debug(unit.getId() + ": kicking without authentication");
     }
     try {
-      HttpResponse response = client.execute(get);
-      statusCode = response.getStatusLine().getStatusCode();
-    } catch (ConnectTimeoutException ce) {
-      log.warn(unit.getId() + " did not respond, indicating a NAT problem or disconnected.");
-      return new KickResponse(
-          false,
-          "TCP/HTTP-kick to "
-              + crUrl
-              + " failed, probably due to NAT or other connection problems: "
-              + ce.getMessage());
-    } catch (Throwable t) {
-      log.warn(unit.getId() + " did not respond, an error has occured: ", t);
+      ResponseEntity<Void> response = restClient.get()
+              .uri(crUrl)
+              .retrieve()
+              .toBodilessEntity();
+      statusCode = response.getStatusCode();
+    } catch (Exception ex) {
+      log.warn(unit.getId() + " did not respond, an error has occured: ", ex);
       return new KickResponse(
           false,
           "TCP/HTTP-kick to "
               + crUrl
               + " failed because of an unexpected error: "
-              + t.getMessage());
+              + ex.getMessage());
     }
-    if (statusCode == HttpStatus.SC_OK || statusCode == HttpStatus.SC_NO_CONTENT) {
+    if (statusCode.is2xxSuccessful()) {
       log.debug(
           unit.getId() + " responded with HTTP " + statusCode + ", indicating a successful kick");
       return new KickResponse(
@@ -170,7 +177,7 @@ public class Kick {
     } else {
       log.warn(
           unit.getId() + " responded with HTTP " + statusCode + ", indicating a unsuccessful kick");
-      if (statusCode == HttpStatus.SC_FORBIDDEN || statusCode == HttpStatus.SC_UNAUTHORIZED) {
+      if (statusCode.value() == HttpStatus.SC_FORBIDDEN || statusCode.value() == HttpStatus.SC_UNAUTHORIZED) {
         return new KickResponse(
             false,
             "TCP/HTTP-kick to "
@@ -183,7 +190,7 @@ public class Kick {
                 + statusCode);
       } else {
         return new KickResponse(
-            false, "TCP/HTTP-kick to " + crUrl + " failed with HTTP response code " + statusCode);
+            false, "TCP/HTTP-kick to " + crUrl + " failed with HTTP response code " + statusCode.value());
       }
     }
   }
@@ -242,19 +249,33 @@ public class Kick {
         "No keyroot found for unit " + u.getId() + ", probably because no parameters are defined");
   }
 
-  private HttpGet authenticate(
-      DefaultHttpClient client, HttpGet get, String urlStr, String username, String password)
-      throws MalformedURLException {
+  private RestClient createSecureClient(String urlStr, String username, String password) throws MalformedURLException {
     URL url = new URL(urlStr);
-    List<String> authPrefs = new ArrayList<>(2);
-    authPrefs.add(AuthPolicy.DIGEST);
-    authPrefs.add(AuthPolicy.BASIC);
-    client.getParams().setParameter(AuthPNames.PROXY_AUTH_PREF, authPrefs);
-    client.getParams().setParameter(AuthPNames.TARGET_AUTH_PREF, authPrefs);
-    Credentials defaultcreds = new UsernamePasswordCredentials(username, password);
-    client
-        .getCredentialsProvider()
-        .setCredentials(new AuthScope(url.getHost(), url.getPort()), defaultcreds);
-    return get;
+
+    // Configuração de Timeout moderna
+    RequestConfig config = RequestConfig.custom()
+            .setConnectTimeout(Timeout.ofMilliseconds(20000))
+            .setResponseTimeout(Timeout.ofMilliseconds(20000))
+            .build();
+
+    // Configura o provedor de credenciais (Suporta Basic e Digest automaticamente no HC5)
+    BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
+    credsProvider.setCredentials(
+            new AuthScope(url.getHost(), url.getPort() == -1 ? 80 : url.getPort()),
+            new UsernamePasswordCredentials(username, password.toCharArray())
+    );
+
+    // Cria o cliente Apache 5
+    CloseableHttpClient httpClient = HttpClients.custom()
+            .setDefaultRequestConfig(config)
+            .setDefaultCredentialsProvider(credsProvider)
+            .build();
+
+    // Retorna o RestClient do Spring configurado com este cliente
+    return RestClient.builder()
+            .requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient))
+            .build();
   }
+
+
 }

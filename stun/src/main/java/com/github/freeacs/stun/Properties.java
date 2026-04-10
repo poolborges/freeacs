@@ -1,43 +1,44 @@
 package com.github.freeacs.stun;
 
-import com.typesafe.config.Config;
-import lombok.Data;
+import lombok.Setter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import lombok.Getter;
 
-@Data
+@Getter
+@Setter
+@Component
 public class Properties {
-  private final boolean expectPortForwarding;
-  private final boolean runWithStun;
-  private final String secondaryIp;
-  private final String primaryIp;
-  private final Integer secondaryPort;
-  private final Integer primaryPort;
-  private final Integer kickInterval;
-  private final boolean checkPublicIp;
-  private final Integer kickRescan;
-  private final String contextPath;
 
-  private final Config environment;
+  @Value("${kick.expect-port-forwarding:false}")
+  private boolean expectPortForwarding;
 
-  public Properties(Config config) {
-    this.environment = config;
-    contextPath = getOrDefault("server.servlet.context-path", "/");
-    kickRescan = getOrDefault("kick.rescan", 60);
-    checkPublicIp = getOrDefault("kick.check-public-ip", false);
-    kickInterval = getOrDefault("kick.interval", 1000);
-    primaryPort = getOrDefault("primary.port", 3478);
-    secondaryPort = getOrDefault("secondary.port", 3478);
-    primaryIp = getOrDefault("primary.ip", null);
-    secondaryIp = getOrDefault("secondary.ip", null);
-    runWithStun = getOrDefault("test.runwithstun", false);
-    expectPortForwarding = getOrDefault("kick.expect-port-forwarding", false);
-  }
+  @Value("${test.runwithstun:true}")
+  private boolean runWithStun;
 
-  @SuppressWarnings("unchecked")
-  private <T> T getOrDefault(String key, T defaultValue) {
-    Object obj = environment.hasPath(key) ? environment.getAnyRef(key) : null;
-    if (obj != null) {
-      return (T) obj;
-    }
-    return defaultValue;
-  }
+  @Value("${secondary.ip:0.0.0.0}")
+  private String secondaryIp;
+
+  @Value("${primary.ip:0.0.0.0}")
+  private String primaryIp;
+
+  @Value("${secondary.port:3479}")
+  private Integer secondaryPort;
+
+  @Value("${primary.port:3478}")
+  private Integer primaryPort;
+
+  @Value("${kick.interval:1000}")
+  private Integer kickInterval;
+
+  @Value("${kick.check-public-ip:false}")
+  private boolean checkPublicIp;
+
+  @Value("${kick.rescan:60}")
+  private Integer kickRescan;
+
+  @Value("${server.servlet.context-path:/stun}")
+  private String contextPath;
+
+  public Properties() {}
 }
