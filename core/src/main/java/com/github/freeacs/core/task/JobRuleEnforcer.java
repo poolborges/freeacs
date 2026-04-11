@@ -170,6 +170,7 @@ public class JobRuleEnforcer extends DBIOwner {
 
   @Override
   public void runImpl() throws Exception {
+    logger.debug("JobRuleEnforcer: Starting execution cycle...");
     populate();
     process();
   }

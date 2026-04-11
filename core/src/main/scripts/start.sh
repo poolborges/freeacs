@@ -4,6 +4,6 @@ java -jar \
 -Xmx1024m \
 -XX:MaxMetaspaceSize=256m \
 -XX:CompressedClassSpaceSize=128m \
--Dlogging.config=config/logback.xml \
--Dspring.config.location=config/application.conf \
+-Dlogging.config=config/logback-spring.xml \
+-Dspring.config.location=config/application.properties \
 core.jar
