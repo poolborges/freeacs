@@ -92,7 +92,7 @@
             <manifest>
               <addClasspath>true</addClasspath>
               <classpathPrefix>lib</classpathPrefix>
-              <mainClass>com.github.freeacs.stun.App1</mainClass>
+              <mainClass>com.github.freeacs.stun.App</mainClass>
             </manifest>
           </archive>
         </configuration>

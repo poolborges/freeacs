@@ -3,6 +3,24 @@
 
 == Components
 
+
+Stun
+
+* STACK: Springboot
+
+Syslog Server
+
+* http://localhost:8086/syslog/ok
+* STACK: Springboot
+
+
+TR069
+
+* STACK: Springboot
+* http://localhost:8085
+* http://localhost:8085/tr069
+
+
 web
 
 * http://localhost:8081
@@ -15,14 +33,3 @@ webservice
 ** http://localhost:8088/webservice/ws/acs.wsdl
 * STACK: Springboot, Hazelcast,
 * PROVIDE: WebService(SOAP)
-
-
-TR069
-
-* http://localhost:8085
-* http://localhost:8085/tr069
-
-Syslog Server
-
-* http://localhost:8086/syslog/ok
-* STACK: Springboot
