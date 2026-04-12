@@ -48,7 +48,6 @@
         <module>scripts</module>
         <module>distribution</module>
         <module>cache</module>
-        <module>common-servlet3</module>
     </modules>
 
     <build>

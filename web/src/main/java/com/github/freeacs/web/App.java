@@ -19,7 +19,6 @@ import com.github.freeacs.web.routes.MainRoute;
 import com.github.freeacs.web.routes.MenuRoute;
 import com.github.freeacs.web.routes.UnitDashboardRoute;
 import com.github.freeacs.web.routes.UnittypeParametersRoute;
-import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
