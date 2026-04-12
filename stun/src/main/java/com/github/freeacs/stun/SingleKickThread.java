@@ -222,6 +222,7 @@ public class SingleKickThread implements Runnable {
 
   /** MAIN METHOD. */
   public void run() {
+    LOG.info("SingleKick Initializing");
     try {
       inbox.addFilter(new Message(null, Message.MTYPE_PUB_IM, null, Message.OTYPE_UNIT));
       dbi.registerInbox("KickRunnable", inbox);

@@ -34,6 +34,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 import org.slf4j.Logger;
@@ -49,11 +50,11 @@ import org.slf4j.LoggerFactory;
  * simply that the server will check with MessageStack to see if any STUN client should be notified.
  */
 public class StunServer {
-  // is this correct? it was previously 127.0.0.1, but I changed it to this
-  public static final String LOOP_BACK_IP_ADDRESS = "0.0.0.0";
-  private static boolean started;
+
+  public static final String ANY_ADDRESS = "0.0.0.0";
+  private static volatile boolean started;
   private static final Logger logger = LoggerFactory.getLogger(StunServer.class);
-  private final List<DatagramSocket> sockets;
+  private final List<DatagramSocket> sockets = new ArrayList<>();
   private static final TimestampMap activeStunClients = new TimestampMap();
 
   /**
@@ -369,44 +370,50 @@ public class StunServer {
 
   public StunServer(int primaryPort, InetAddress primary, int secondaryPort, InetAddress secondary)
       throws SocketException {
-    logger.info("Primary port: {}, Primary address: {}, Secondary port: {}, Secondary address: {}", primaryPort, primary.toString(), secondaryPort, secondary.toString());
-    sockets = new Vector<>();
+    logger.info("STUN Initializing: Primary {}:{}, Secondary {}:{}",
+            primary.getHostAddress(), primaryPort, secondary.getHostAddress(), secondaryPort);
+
+
+    if(primary.isAnyLocalAddress() || secondary.isAnyLocalAddress()){
+      logger.info("STUN Server with interface using {} - not optimal", ANY_ADDRESS);
+    }
+
     sockets.add(new DatagramSocket(primaryPort, primary));
     sockets.add(new DatagramSocket(secondaryPort, primary));
-    if (!LOOP_BACK_IP_ADDRESS.equals(primary.getHostAddress())
-        || !LOOP_BACK_IP_ADDRESS.equals(secondary.getHostAddress())) {
+    if (!primary.equals(secondary) && !primary.isAnyLocalAddress()) {
       sockets.add(new DatagramSocket(primaryPort, secondary));
       sockets.add(new DatagramSocket(secondaryPort, secondary));
+      logger.info("STUN Server: All interfaces are operational (Multi-homed)");
     } else {
-      logger.info(
-          "Not adding sockets for secondary interface " + LOOP_BACK_IP_ADDRESS + ", since primary interface is also " + LOOP_BACK_IP_ADDRESS);
+      logger.warn("STUN Server: Running in limited mode (Single interface or 0.0.0.0)");
     }
-    if (LOOP_BACK_IP_ADDRESS.equals(secondary.getHostAddress())) {
-      logger.info(
-          "STUN Server has started, secondary interface uses to " + LOOP_BACK_IP_ADDRESS + " - not optimal for full STUN functionality");
-    } else {
-      logger.info("STUN Server has started, all interfaces are operational");
-    }
+
+
   }
 
   public void start() throws SocketException {
     int counter = 0;
     for (DatagramSocket socket : sockets) {
       socket.setReceiveBufferSize(2000);
-      StunServerReceiverThread ssrt;
-      ssrt = new StunServerReceiverThread(socket, counter == 0);
-      ssrt.setName("StunServerReceiverThread-" + counter);
-      counter++;
+      StunServerReceiverThread ssrt = new StunServerReceiverThread(socket, counter == 0);
+      ssrt.setName("StunServerReceiverThread-" +  counter++);
+
       ssrt.start();
     }
+    started = true;
+    logger.info("STUN Server receiver threads started.");
   }
 
   public void shutdown() {
+    started = false;
     for (DatagramSocket socket : sockets) {
-      logger.info("Close down a socket");
-      socket.disconnect();
-      socket.close();
+      if (socket != null && !socket.isClosed()) {
+        logger.info("Closing socket on {}:{}", socket.getLocalAddress(), socket.getLocalPort());
+        socket.disconnect();
+        socket.close();
+      }
     }
+    logger.info("STUN Server receiver threads shutdown.");
   }
 
   public static boolean isStarted() {

@@ -236,6 +236,7 @@ public class JobKickThread implements Runnable {
   }
 
   public void run() {
+    log.info("JobKick Initializing");
     try {
       Sleep sleep = new Sleep(1000, 1000, true);
       do {

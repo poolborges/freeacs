@@ -1,79 +1,113 @@
 package com.github.freeacs.stun;
 
-import com.github.freeacs.common.scheduler.ExecutorWrapper;
 import com.github.freeacs.common.util.Sleep;
 import com.github.freeacs.dbi.DBI;
 import de.javawi.jstun.StunServer;
 import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class StunServlet {
-  private StunServer server;
-
   private static final Logger logger = LoggerFactory.getLogger(StunServlet.class);
+
+  private StunServer server;
+  private ExecutorService executor;
 
   private final DBI dbi;
   private final DataSource mainDs;
   private final Properties properties;
-  private final ExecutorWrapper executorWrapper;
 
-  public StunServlet(DBI dbi, DataSource mainDs, Properties properties, ExecutorWrapper executorWrapper) {
+  public StunServlet(DBI dbi, DataSource mainDs, Properties properties) {
     this.dbi = dbi;
     this.mainDs = mainDs;
     this.properties = properties;
-    this.executorWrapper = executorWrapper;
   }
 
-  public void destroy() {
-    Sleep.terminateApplication();
-    server.shutdown();
-  }
+  public synchronized void init() {
+    logger.info("Init StunServlet and background threads...");
 
-  public void init() {
-    trigger();
-  }
-
-
-  private synchronized void trigger() {
     try {
-
       if (properties.isRunWithStun()) {
-        if (server == null) {
-          int pPort = properties.getPrimaryPort();
-          String pIp = properties.getPrimaryIp();
-          int sPort = properties.getSecondaryPort();
-          String sIp = properties.getSecondaryIp();
-          server =
-              new StunServer(pPort, InetAddress.getByName(pIp), sPort, InetAddress.getByName(sIp));
-        }
-        if (!StunServer.isStarted()) {
-          logger.info("Server startup...");
-          server.start();
-        }
+        startStunServer();
       }
 
-      ActiveDeviceDetection activeDeviceDetection =
-          new ActiveDeviceDetection(mainDs, dbi, "ActiveDeviceDetection");
-      executorWrapper.scheduleCron(
-          "15 * * ? * * *",
-          (tms) ->
-              () -> {
-                activeDeviceDetection.setThisLaunchTms(tms);
-                activeDeviceDetection.run();
-              });
-
-      Thread singleKickThread = new Thread(new SingleKickThread(mainDs, dbi, properties));
-      singleKickThread.setName("Scheduler STUN");
-      singleKickThread.start();
-
-      Thread jobKickThread = new Thread(new JobKickThread(mainDs, dbi, properties));
-      jobKickThread.setName("STUN Job Kick Thread");
-      jobKickThread.start();
-
+      startTriggers();
     } catch (Exception t) {
-      logger.error("An error occurred while starting Stun Server", t);
+      logger.error("Critical error while starting Stun Server or Schedulers", t);
+    }
+
+  }
+
+  public synchronized void destroy() {
+    logger.info("Shutting down StunServlet and stopping background threads...");
+    Sleep.terminateApplication();
+
+    if (server != null) {
+      server.shutdown();
+    }
+
+    if (executor != null) {
+      executor.shutdownNow();
+      try {
+        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+          logger.warn("Background threads did not terminate within the expected time.");
+        }
+      } catch (InterruptedException e) {
+        logger.error("Interrupted during executor shutdown", e);
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private void startTriggers() {
+
+      if (executor == null || executor.isShutdown()) {
+        executor = Executors.newFixedThreadPool(2, new ThreadFactory() {
+          private final AtomicInteger count = new AtomicInteger(1);
+          @Override
+          public Thread newThread(Runnable r) {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            t.setName("StunBackgroundPool-" + count.getAndIncrement());
+            return t;
+          }
+        });
+      }
+
+      executor.submit(() -> {
+        Thread.currentThread().setName("STUN-SingleKickThread");
+        new SingleKickThread(mainDs, dbi, properties).run();
+      });
+
+      executor.submit(() -> {
+        Thread.currentThread().setName("STUN-JobKickThread");
+        new JobKickThread(mainDs, dbi, properties).run();
+      });
+
+      logger.info("Background kick threads submitted to the pool.");
+  }
+
+  private void startStunServer() throws UnknownHostException, SocketException {
+    if (server == null) {
+      int pPort = properties.getPrimaryPort();
+      String pIp = properties.getPrimaryIp();
+      int sPort = properties.getSecondaryPort();
+      String sIp = properties.getSecondaryIp();
+
+      server = new StunServer(pPort, InetAddress.getByName(pIp), sPort, InetAddress.getByName(sIp));
+    }
+
+    if (!StunServer.isStarted()) {
+      logger.info("Starting STUN Server on {}:{}", properties.getPrimaryIp(), properties.getPrimaryPort());
+      server.start();
     }
   }
 }

@@ -36,8 +36,8 @@ public class AppConfiguration {
     }
 
     @Bean(initMethod = "init", destroyMethod = "destroy")
-    public StunServlet stunServlet(DBI dbi, DataSource datasource, Properties properties, ExecutorWrapper executorWrapper) {
-       return new StunServlet(dbi, datasource, properties, executorWrapper);
+    public StunServlet stunServlet(DBI dbi, DataSource datasource, Properties properties) {
+       return new StunServlet(dbi, datasource, properties);
     }
 
     @Bean(destroyMethod = "shutdown")
