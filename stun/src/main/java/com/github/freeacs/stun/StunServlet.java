@@ -3,34 +3,30 @@ package com.github.freeacs.stun;
 import com.github.freeacs.common.scheduler.ExecutorWrapper;
 import com.github.freeacs.common.util.Sleep;
 import com.github.freeacs.dbi.DBI;
-import com.github.freeacs.dbi.Identity;
-import com.github.freeacs.dbi.Syslog;
-import com.github.freeacs.dbi.SyslogConstants;
-import com.github.freeacs.dbi.User;
-import com.github.freeacs.dbi.Users;
 import de.javawi.jstun.StunServer;
 import java.net.InetAddress;
-import java.sql.SQLException;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class StunServlet {
-  public static StunServer server;
+  private StunServer server;
 
   private static final Logger logger = LoggerFactory.getLogger(StunServlet.class);
 
+  private final DBI dbi;
   private final DataSource mainDs;
   private final Properties properties;
   private final ExecutorWrapper executorWrapper;
 
-  public StunServlet(DataSource mainDs, Properties properties, ExecutorWrapper executorWrapper) {
+  public StunServlet(DBI dbi, DataSource mainDs, Properties properties, ExecutorWrapper executorWrapper) {
+    this.dbi = dbi;
     this.mainDs = mainDs;
     this.properties = properties;
     this.executorWrapper = executorWrapper;
   }
 
-  public static void destroy() {
+  public void destroy() {
     Sleep.terminateApplication();
     server.shutdown();
   }
@@ -39,17 +35,9 @@ public class StunServlet {
     trigger();
   }
 
-  private static DBI initializeDBI(DataSource mainDs) throws SQLException {
-    Users users = new Users(mainDs);
-    User user = users.getUnprotected(Users.USER_ADMIN);
-    Identity id = new Identity(SyslogConstants.FACILITY_STUN, "latest", user);
-    Syslog syslog = new Syslog(mainDs, id);
-    return DBI.createAndInitialize(Integer.MAX_VALUE, mainDs, syslog);
-  }
 
   private synchronized void trigger() {
     try {
-      DBI dbi = initializeDBI(mainDs);
 
       if (properties.isRunWithStun()) {
         if (server == null) {
@@ -84,7 +72,7 @@ public class StunServlet {
       jobKickThread.setName("STUN Job Kick Thread");
       jobKickThread.start();
 
-    } catch (Throwable t) {
+    } catch (Exception t) {
       logger.error("An error occurred while starting Stun Server", t);
     }
   }

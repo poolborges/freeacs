@@ -4,32 +4,48 @@
 == Components
 
 
+Core Server
+
+* STACK: Springboot
+
+Monitor Server
+
+* STACK: Springboot
+
+Shell CLI
+
 Stun
 
 * STACK: Springboot
 
 Syslog Server
 
-* http://localhost:8086/syslog/ok
 * STACK: Springboot
+* LOCAL PORT: 8086 (HTTP), 9116 (UDP)
+* BASE PATH: /syslog
+** http://localhost:8086/syslog
+** upd://localhost:9116
 
 
 TR069
 
 * STACK: Springboot
-* http://localhost:8085
-* http://localhost:8085/tr069
+* LOCAL PORT: 8085
+* BASE PATH: /tr069
 
 
 web
 
-* http://localhost:8081
+
 * STACK: Embedded Jetty, Hazelcast
+* LOCAL PORT: 8081
 * PROVIDE: UI
 
 webservice
 
-* http://localhost:8088/webservice
+
+* STACK: Springboot, Hazelcast
+* LOCAL PORT: 8088/
+** http://localhost:8088/webservice
 ** http://localhost:8088/webservice/ws/acs.wsdl
-* STACK: Springboot, Hazelcast,
 * PROVIDE: WebService(SOAP)
