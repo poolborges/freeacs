@@ -8,7 +8,6 @@
   </parent>
 
   <artifactId>stun</artifactId>
-  <version>3.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>stun</name>
@@ -121,10 +120,14 @@
         <executions>
           <execution>
             <goals>
+              <goal>build-info</goal>
               <goal>repackage</goal>
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <classifier>exec</classifier>
+        </configuration>
       </plugin>
     </plugins>
   </build>

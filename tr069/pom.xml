@@ -8,7 +8,6 @@
   </parent>
 
   <artifactId>tr069</artifactId>
-  <version>3.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>tr069</name>
@@ -26,6 +25,7 @@
       <artifactId>js-scriptengine</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- -->
     <dependency>
       <groupId>com.github.freeacs</groupId>
       <artifactId>core</artifactId>
@@ -67,16 +67,17 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-jetty</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
+      <scope>test</scope><exclusions>
+      <exclusion>
+        <groupId>com.vaadin.external.google</groupId>
+        <artifactId>android-json</artifactId>
+      </exclusion>
+    </exclusions>
     </dependency>
     <dependency>
       <groupId>org.springframework.security</groupId>
@@ -90,11 +91,6 @@
     <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.mashape.unirest</groupId>
-      <artifactId>unirest-java</artifactId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mybatis</groupId>
@@ -145,10 +141,6 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>commons-httpclient</groupId>
-      <artifactId>commons-httpclient</artifactId>
-    </dependency>
-    <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
     </dependency>
@@ -185,10 +177,14 @@
         <executions>
           <execution>
             <goals>
+              <goal>build-info</goal>
               <goal>repackage</goal>
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <classifier>exec</classifier>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

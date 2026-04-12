@@ -47,10 +47,10 @@ public class DigestProvisioningTest extends AbstractProvisioningTest implements 
         }
     }
 
-    private final Integer randomServerPort;
+    @LocalServerPort
+    private Integer randomServerPort;
 
-    public DigestProvisioningTest(@LocalServerPort Integer randomServerPort) {
-        this.randomServerPort = randomServerPort;
+    public DigestProvisioningTest() {
     }
 
     @Test

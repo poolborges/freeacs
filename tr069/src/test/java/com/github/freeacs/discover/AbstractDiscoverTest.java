@@ -2,14 +2,15 @@ package com.github.freeacs.discover;
 
 import com.github.freeacs.common.util.AbstractMySqlIntegrationTest;
 import com.github.freeacs.dbi.DBI;
-import com.github.freeacs.utils.MysqlDataSourceInitializer;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.MySQLContainer;
 
 import static com.github.freeacs.common.util.FileSlurper.getFileAsString;
 import static com.github.freeacs.utils.Matchers.hasNoSpace;
@@ -22,7 +23,19 @@ public class AbstractDiscoverTest implements AbstractMySqlIntegrationTest {
     public static class DataSourceInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
         @Override
         public void initialize(@NotNull ConfigurableApplicationContext applicationContext) {
-            MysqlDataSourceInitializer.initialize(databaseTestContainer, applicationContext);
+            // Acede ao container da interface para garantir que o Spring use a mesma instância
+            MySQLContainer<?> container = AbstractMySqlIntegrationTest.databaseTestContainer;
+
+            if (!container.isRunning()) {
+                container.start();
+            }
+
+            // Injeta as propriedades no ambiente do Spring
+            TestPropertyValues.of(
+                    "main.datasource.jdbc-url=" + container.getJdbcUrl(),
+                    "main.datasource.username=" + container.getUsername(),
+                    "main.datasource.password=" + container.getPassword()
+            ).applyTo(applicationContext.getEnvironment());
         }
     }
 

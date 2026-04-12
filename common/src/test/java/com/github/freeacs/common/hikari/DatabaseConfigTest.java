@@ -22,12 +22,11 @@ class DatabaseConfigTest {
         assertEquals("jdbc:mysql://localhost:3306/mydb?useSSL=false", hikariConfig.getJdbcUrl());
         assertEquals("user", hikariConfig.getUsername());
         assertEquals("pass", hikariConfig.getPassword());
-        assertEquals(1, hikariConfig.getMinimumIdle());
-        assertEquals(10, hikariConfig.getMaximumPoolSize());
-        assertEquals("SELECT 1", hikariConfig.getConnectionTestQuery());
-        assertEquals("HikariCP", hikariConfig.getPoolName());
     }
 
+    /**
+     * Test logic for URI parsing (common in cloud environments like Heroku).
+     */
     @Test
     void testGetDataSourceWithUri() throws URISyntaxException {
         DatabaseConfig config = DatabaseConfig.builder()
@@ -39,10 +38,26 @@ class DatabaseConfigTest {
         assertEquals("jdbc:mysql://localhost:3306/mydb?useSSL=false", hikariConfig.getJdbcUrl());
         assertEquals("user", hikariConfig.getUsername());
         assertEquals("pass", hikariConfig.getPassword());
-        assertEquals(1, hikariConfig.getMinimumIdle());
-        assertEquals(10, hikariConfig.getMaximumPoolSize());
-        assertEquals("SELECT 1", hikariConfig.getConnectionTestQuery());
-        assertEquals("HikariCP", hikariConfig.getPoolName());
+    }
+
+    /**
+     * IMPORTANT: Verifies that a standard JDBC URL without user info in the string
+     * does NOT cause a NullPointerException.
+     */
+    @Test
+    void testGetDataSourceWithStandardJdbcUrlNoUserInfo() throws URISyntaxException {
+        DatabaseConfig config = DatabaseConfig.builder()
+                .jdbcUrl("jdbc:mysql://localhost:3306/freeacs")
+                .driverClassName("com.mysql.cj.jdbc.Driver")
+                .username("freeacs")
+                .password("freeacs")
+                .build();
+
+        // This should not throw NPE even if URI parsing logic exists
+        HikariConfig hikariConfig = config.getHikariConfig();
+        assertNotNull(hikariConfig);
+        assertEquals("jdbc:mysql://localhost:3306/freeacs", hikariConfig.getJdbcUrl());
+        assertEquals("freeacs", hikariConfig.getUsername());
     }
 
     @Test

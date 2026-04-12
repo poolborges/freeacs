@@ -48,11 +48,8 @@ public class BasicProvisioningTest extends AbstractProvisioningTest implements A
         }
     }
 
-    private final Integer randomServerPort;
-
-    public BasicProvisioningTest(@LocalServerPort Integer randomServerPort) {
-        this.randomServerPort = randomServerPort;
-    }
+    @LocalServerPort
+    private Integer randomServerPort;
 
     @Test
     public void unauthorizedOnMissingAuthentication() throws Exception {

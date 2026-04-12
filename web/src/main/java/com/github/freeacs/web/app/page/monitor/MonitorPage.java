@@ -105,7 +105,7 @@ public class MonitorPage extends AbstractWebPage {
       if (method.getStatusCode() == HttpStatus.SC_OK) {
         outputHandler = method.getResponseBodyAsString();
       }
-    } catch (IOException | HttpException e) {
+    } catch (IOException e) {
       logger.warn("Could not find the monitor server", e);
     }
 

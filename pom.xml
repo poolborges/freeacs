@@ -102,9 +102,13 @@
                         <execution>
                             <goals>
                                 <goal>build-info</goal>
+                                <goal>repackage</goal>
                             </goals>
                         </execution>
                     </executions>
+                    <configuration>
+                        <classifier>exec</classifier>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

@@ -44,11 +44,9 @@ public class NoSecurityProvisioningTest extends AbstractProvisioningTest impleme
         }
     }
 
-    private final Integer randomServerPort;
+    @LocalServerPort
+    private Integer randomServerPort;
 
-    public NoSecurityProvisioningTest(@LocalServerPort Integer randomServerPort) {
-        this.randomServerPort = randomServerPort;
-    }
 
     @Test
     public void noContentOnMissingAuthentication() throws Exception {

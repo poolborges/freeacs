@@ -8,7 +8,6 @@
   </parent>
 
   <artifactId>core</artifactId>
-  <version>3.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>core</name>
@@ -136,6 +135,9 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <classifier>exec</classifier>
+        </configuration>
       </plugin>
     </plugins>
   </build>

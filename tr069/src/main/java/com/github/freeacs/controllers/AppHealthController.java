@@ -6,9 +6,8 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 
-@RestController
+@RestController("tr069AppHealthController")
 public class AppHealthController {
 
     @Autowired

@@ -36,18 +36,38 @@ public record DatabaseConfig(
         String finalPassword = password;
         String finalDriverClassName = driverClassName;
 
+        // Only attempt URI parsing if it's NOT a standard JDBC URL and not null
         if (jdbcUrl != null && !jdbcUrl.startsWith("jdbc")) {
             URI dbUri = new URI(jdbcUrl);
-            finalUsername = dbUri.getUserInfo().split(":")[0];
-            finalPassword = dbUri.getUserInfo().split(":")[1];
-            String dbType = dbUri.getScheme().split(":")[0];
-            finalJdbcUrl = constructJdbcUrl(dbType, dbUri) + Optional.ofNullable(dbUri.getQuery()).map(q -> "?" + q).orElse("");
-            finalDriverClassName = determineDriverClassName(dbType);
+            String userInfo = dbUri.getUserInfo();
+
+            // Fix: Check if userInfo is present before splitting to avoid NullPointerException
+            if (userInfo != null && userInfo.contains(":")) {
+                finalUsername = userInfo.split(":")[0];
+                finalPassword = userInfo.split(":")[1];
+            }
+
+            String scheme = dbUri.getScheme();
+            if (scheme != null) {
+                String dbType = scheme.split(":")[0];
+                finalJdbcUrl = constructJdbcUrl(dbType, dbUri) +
+                        Optional.ofNullable(dbUri.getQuery()).map(q -> "?" + q).orElse("");
+                finalDriverClassName = determineDriverClassName(dbType);
+            }
         }
 
         HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(Optional.ofNullable(finalJdbcUrl).orElseThrow(() -> new IllegalArgumentException("JDBC URL is required")));
-        hikariConfig.setDriverClassName(Optional.ofNullable(finalDriverClassName).orElseThrow(() -> new IllegalArgumentException("Driver class name is required")));
+        hikariConfig.setJdbcUrl(Optional.ofNullable(finalJdbcUrl)
+                .orElseThrow(() -> new IllegalArgumentException("JDBC URL is required")));
+
+        // Fallback for Driver Class Name if URI parsing didn't set it and it's not provided
+        if (finalDriverClassName == null && finalJdbcUrl.startsWith("jdbc:mysql")) {
+            finalDriverClassName = "com.mysql.cj.jdbc.Driver";
+        }
+
+        hikariConfig.setDriverClassName(Optional.ofNullable(finalDriverClassName)
+                .orElseThrow(() -> new IllegalArgumentException("Driver class name is required")));
+
         hikariConfig.setUsername(finalUsername);
         hikariConfig.setPassword(finalPassword);
 
@@ -77,10 +97,10 @@ public record DatabaseConfig(
         hikariConfig.setConnectionTestQuery(Optional.ofNullable(connectionTestQuery).orElse("SELECT 1"));
         hikariConfig.setPoolName(Optional.ofNullable(poolName).orElse("HikariCP"));
 
-        hikariConfig.addDataSourceProperty("dataSource.cachePrepStmts", Optional.ofNullable(cachePrepStmts).map(Object::toString).orElse("true"));
-        hikariConfig.addDataSourceProperty("dataSource.prepStmtCacheSize", Optional.ofNullable(prepStmtCacheSize).map(Object::toString).orElse("250"));
-        hikariConfig.addDataSourceProperty("dataSource.prepStmtCacheSqlLimit", Optional.ofNullable(prepStmtCacheSqlLimit).map(Object::toString).orElse("2048"));
-        hikariConfig.addDataSourceProperty("dataSource.useServerPrepStmts", Optional.ofNullable(useServerPrepStmts).map(Object::toString).orElse("true"));
+        hikariConfig.addDataSourceProperty("cachePrepStmts", Optional.ofNullable(cachePrepStmts).map(Object::toString).orElse("true"));
+        hikariConfig.addDataSourceProperty("prepStmtCacheSize", Optional.ofNullable(prepStmtCacheSize).map(Object::toString).orElse("250"));
+        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", Optional.ofNullable(prepStmtCacheSqlLimit).map(Object::toString).orElse("2048"));
+        hikariConfig.addDataSourceProperty("useServerPrepStmts", Optional.ofNullable(useServerPrepStmts).map(Object::toString).orElse("true"));
 
         hikariConfig.setAutoCommit(Optional.ofNullable(autoCommit).orElse(true));
     }

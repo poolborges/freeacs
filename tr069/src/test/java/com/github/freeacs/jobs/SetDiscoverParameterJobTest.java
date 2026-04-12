@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.mock.web.MockHttpSession;
@@ -43,6 +44,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@Import(com.github.freeacs.core.Properties.class)
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, classes = Main.class)
 @AutoConfigureMockMvc
@@ -67,6 +69,9 @@ public class SetDiscoverParameterJobTest implements AbstractMySqlIntegrationTest
 
     @Autowired
     private DBI dbi;
+
+    @Autowired
+    private Properties properties;
 
     private void init() throws SQLException, IOException {
         // Create necessary state
@@ -110,7 +115,7 @@ public class SetDiscoverParameterJobTest implements AbstractMySqlIntegrationTest
                 .withValue("shellscript.poolsize", ConfigValueFactory.fromAnyRef(1))
                 .withValue("syslog.severity.0.limit", ConfigValueFactory.fromAnyRef(90));
 
-        ScriptExecutor scriptExecutorTask = new ScriptExecutor("ScriptExecutor", dbi, new Properties(config));
+        ScriptExecutor scriptExecutorTask = new ScriptExecutor("ScriptExecutor", dbi, properties);
         scriptExecutorTask.setThisLaunchTms(System.currentTimeMillis());
         scriptExecutorTask.runImpl();
     }

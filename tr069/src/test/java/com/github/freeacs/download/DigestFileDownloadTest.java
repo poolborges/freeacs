@@ -34,11 +34,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Slf4j
 public class DigestFileDownloadTest extends AbstractDownloadTest {
 
-    private final Integer randomServerPort;
+    @LocalServerPort
+    private Integer randomServerPort;
 
-    public DigestFileDownloadTest(@LocalServerPort Integer randomServerPort) {
-        this.randomServerPort = randomServerPort;
-    }
 
     @Test
     public void unauthorizedOnMissingAuthentication() throws Exception {
