@@ -1,48 +1,51 @@
 package com.owera.xaps.monitor;
 
-import com.typesafe.config.Config;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import jakarta.annotation.PostConstruct;
 
+@Component
 public class Properties {
+
   public static Long RETRY_SECS;
   public static String URL_BASE;
 
-  private final Config config;
+  @Value("${monitor.urlbase:http://localhost/}")
+  private String monitorUrlBase;
 
-  public Properties(Config config) {
-    this.config = config;
-    URL_BASE = getMonitorURLBase();
-    RETRY_SECS = getRetrySeconds();
+  @Value("${monitor.retrysec:300}")
+  private Long monitorRetrySec;
+
+  @Value("${server.servlet.context-path:/monitor}")
+  private String contextPath;
+
+  @Value("${server.port:8080}")
+  private int serverPort;
+
+
+  @PostConstruct
+  private void initStaticFields() {
+    URL_BASE = monitorUrlBase.endsWith("/") ? monitorUrlBase : monitorUrlBase + "/";
+    RETRY_SECS = monitorRetrySec;
   }
 
   public String getMonitorURLBase() {
-    String urlBase = get("monitor.urlbase");
-    if (urlBase == null) {
-      return "http://localhost/";
-    }
-    if (!urlBase.endsWith("/")) {
-      urlBase += "/";
-    }
-    return urlBase;
+    return URL_BASE;
   }
 
   public long getRetrySeconds() {
-    String prop = get("monitor.retrysec");
-    try {
-      return Long.parseLong(prop);
-    } catch (Throwable t) {
-      return 300L;
-    }
+    return RETRY_SECS;
   }
 
   public String getContextPath() {
-    return config.getString("server.servlet.context-path");
+    return contextPath;
   }
 
   public int getServerPort() {
-    return config.getInt("server.port");
+    return serverPort;
   }
 
   public String get(String key) {
-    return config.hasPath(key) ? config.getString(key) : null;
+    return null;
   }
 }

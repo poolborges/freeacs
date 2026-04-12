@@ -10,9 +10,9 @@
         <appender-ref ref="STDOUT" />
     </appender>
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH:-logs}/monitor.log</file>
+        <file>${LOG_PATH:-logs}/syslog.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>monitor_%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_PATH:-logs}/syslog_%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
@@ -22,8 +22,8 @@
     <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="FILE" />
     </appender>
-    <logger name="com.github.freeacs" level="WARN" />
-    <root level="WARN">
+    <logger name="com.github.freeacs" level="${level.com.github.freeacs:-WARN}" />
+    <root level="${logging.level.root:-WARN}">
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="ASYNC_STDOUT" />
     </root>

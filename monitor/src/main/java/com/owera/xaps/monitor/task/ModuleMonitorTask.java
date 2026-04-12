@@ -1,92 +1,70 @@
 package com.owera.xaps.monitor.task;
 
-import com.github.freeacs.common.scheduler.TaskDefaultImpl;
 import com.owera.xaps.monitor.Properties;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
-/**
- * Responsible for monitoring a set of URLs.
- *
- * @author Morten
- */
-public class ModuleMonitorTask extends TaskDefaultImpl {
-  private static final Logger log = LoggerFactory.getLogger(ModuleMonitorTask.class);
+import java.time.OffsetDateTime;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
-  /**
-   * Contains a list of MonitorInfo. This list is used to 1. Run monitoring of the various URLs in
-   * MonitorInfo 2. Read the list of monitored URLs 3. Read the status for each monitored URL.
-   */
-  private static final Set<MonitorInfo> monitorInfoSet = new TreeSet<>();
+@Component
+public class ModuleMonitorTask {
 
+  private static final Logger LOGGER = LoggerFactory.getLogger(ModuleMonitorTask.class);
 
-  // All modules are defined here - we assume that every module will be monitored using this URL:
-  // monitor-urlbase+xaps+<module>+/ok Example: https://localhost:8443/xapsspp/ok
+  // Using a Map because Records are immutable; we must replace the entry to update it.
+  private static final Map<String, MonitorInfo> monitorMap = new ConcurrentHashMap<>();
+
   static {
-    for (String module : new String[] {"core", "stun", "syslog", "tr069", "web", "webservice"}) {
-      monitorInfoSet.add(new MonitorInfo(module));
+    String[] modules = {"core", "stun", "syslog", "tr069", "web", "webservice"};
+    for (String module : modules) {
+      monitorMap.put(module, new MonitorInfo(module));
     }
   }
 
   private final Properties properties;
+  private final MonitorService monitorService;
 
-  public ModuleMonitorTask(String taskName, Properties properties) {
-    super(taskName);
+  public ModuleMonitorTask(Properties properties, MonitorService monitorService) {
     this.properties = properties;
+    this.monitorService = monitorService;
   }
 
-  @Override
-  public void runImpl() throws Throwable {
-    /* Update urlBase from config for every time we run monitoring */
+  @Scheduled(cron = "0 * * * * *")
+  public void execute() {
     String urlBase = Properties.URL_BASE;
 
-    /* Iterate over the monitorInfoMap and monitor each URL, update status/errormessage in MonitorInfo */
-    Map<MonitorInfo, MonitorExecution> mapInfo2Execution = new HashMap<>();
+    List<CompletableFuture<Void>> futures = monitorMap.values().stream()
+            .map(info -> {
+              String moduleUrl = properties.get("monitor.url." + info.module());
+              if (moduleUrl == null) {
+                moduleUrl = urlBase + info.module() + "/ok";
+              }
 
-    for (MonitorInfo mi : monitorInfoSet) {
-      String moduleUrl = properties.get("monitor.url." + mi.getModule());
-      if (moduleUrl == null) {
-        moduleUrl = urlBase + mi.getModule() + "/ok";
-      }
-      MonitorExecution me = new MonitorExecution(moduleUrl);
-      mapInfo2Execution.put(mi, me);
-      new Thread(me).start();
-    }
+              return monitorService.checkModuleStatus(moduleUrl)
+                      .thenAccept(result -> {
+                        // Create a new record instance with updated data
+                        MonitorInfo updatedInfo = new MonitorInfo(
+                                info.module(),
+                                result.status(),
+                                result.url(),
+                                result.version(),
+                                result.errorMessage(),
+                                OffsetDateTime.now()
+                        );
+                        monitorMap.put(info.module(), updatedInfo);
+                      });
+            })
+            .toList();
 
-    /* Check that mapInfo2Execution is updated with results from all MonitorExecutions */
-    do {
-      boolean allResultsReady = true;
-      for (Entry<MonitorInfo, MonitorExecution> entry : mapInfo2Execution.entrySet()) {
-        if (entry.getValue().getStatus() == null) {
-          Thread.sleep(Properties.RETRY_SECS * 1000 / 10);
-          allResultsReady = false;
-        } else {
-          entry.getKey().setErrorMessage(entry.getValue().getErrorMessage());
-          entry.getKey().setStatus(entry.getValue().getStatus());
-          entry.getKey().setVersion(entry.getValue().getVersion());
-          entry.getKey().setUrl(entry.getValue().getUrl());
-          if (entry.getKey().getErrorMessage() != null && "OK".equals(entry.getKey().getStatus())) {
-            log.warn("Monitoring: ModuleMonitorTask: ErrorMessage is not null and status is OK!!");
-          }
-        }
-      }
-      if (allResultsReady) {
-        break;
-      }
-    } while (true);
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
   }
 
-  @Override
-  public Logger getLogger() {
-    return log;
-  }
-
-  public static Set<MonitorInfo> getMonitorInfoSet() {
-    return monitorInfoSet;
+  public static Collection<MonitorInfo> getMonitorInfoSet() {
+    return new TreeSet<>(monitorMap.values());
   }
 }

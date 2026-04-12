@@ -1,0 +1,8 @@
+.monitor-table { width: 100%; border-collapse: collapse; }
+.monitor-table th, .monitor-table td { padding: 8px; border: 1px solid #ddd; }
+
+/* Status Colors */
+.status-ok { background-color: #d4edda; color: #155724; }
+.status-error, .status-fatal { background-color: #f8d7da; color: #721c24; }
+.status-warning { background-color: #fff3cd; color: #856404; }
+.status-unknown { background-color: #e2e3e5; color: #383d41; }

@@ -1,61 +1,25 @@
 package com.owera.xaps.monitor.task;
 
-public class MonitorInfo implements Comparable<MonitorInfo> {
-  private String module;
-  private String status;
-  private String url;
-  private String version;
-  private String errorMessage;
+import java.time.OffsetDateTime;
+
+/**
+ * Immutable record representing the state of a monitored module.
+ */
+public record MonitorInfo(
+        String module,
+        String status,
+        String url,
+        String version,
+        String errorMessage,
+        OffsetDateTime lastUpdate
+) implements Comparable<MonitorInfo> {
 
   public MonitorInfo(String module) {
-    this.module = module;
-  }
-
-  public String getModule() {
-    return module;
-  }
-
-  public String getStatus() {
-    return status;
-  }
-
-  public String getUrl() {
-    return url;
-  }
-
-  public String getVersion() {
-    return version;
-  }
-
-  public String getErrorMessage() {
-    return errorMessage;
-  }
-
-  public void setModule(String module) {
-    this.module = module;
-  }
-
-  public void setStatus(String status) {
-    this.status = status;
-  }
-
-  public void setUrl(String url) {
-    this.url = url;
-  }
-
-  public void setVersion(String version) {
-    this.version = version;
-  }
-
-  public void setErrorMessage(String errorMessage) {
-    this.errorMessage = errorMessage;
+    this(module, "PENDING", null, null, null, null);
   }
 
   @Override
   public int compareTo(MonitorInfo o) {
-    if (o != null) {
-      return getModule().compareTo(o.getModule());
-    }
-    return 0;
+    return this.module.compareTo(o.module);
   }
 }

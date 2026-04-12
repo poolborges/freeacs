@@ -1,4 +1,4 @@
-package com.github.freeacs.core;
+package com.github.freeacs.stun;
 
 import com.github.freeacs.common.http.HealthResponse;
 import org.springframework.beans.factory.annotation.Autowired;
