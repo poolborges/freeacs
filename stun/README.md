@@ -16,3 +16,16 @@ The Kick-class takes care of listening to the messages from DBI.
 Protocols
 
 * STUN/TR-111
+
+NAT 
+
+* Symmetric NAT (NAT Aggressive)
+* Restricted Cone NAT
+
+
+Package 
+
+* Simple Binding Request (Keep-Alive) - Binding Request (vazio, sem atributos).
+* Full Binding Request (NAT Discovery) 
+* UDP Connection Request ("Kick")
+* 
