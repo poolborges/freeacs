@@ -11,3 +11,8 @@ inner class StunServerReceiverThread. The TR-069 Server is communicating with
 the TR-069 server through the messaging system offered in the Common project.
 The Kick-class takes care of listening to the messages from DBI. 
 
+
+
+Protocols
+
+* STUN/TR-111

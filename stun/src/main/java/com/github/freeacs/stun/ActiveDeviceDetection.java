@@ -26,6 +26,8 @@ public class ActiveDeviceDetection extends TaskDefaultImpl {
   private final DataSource xapsCp;
   private final DBI dbi;
   private final TimestampMap activeDevicesLogged = new TimestampMap();
+  private static final int TIME_MS_ONE_HOUR = 60 * 60000;
+  private static final int TIME_MS_FIVE_MINUTE = 5 * 60000;
 
   public ActiveDeviceDetection(DataSource xapsCp, DBI dbi, String taskName) {
     super(taskName);
@@ -46,19 +48,14 @@ public class ActiveDeviceDetection extends TaskDefaultImpl {
     // load over time. Worst case scenario is that no units will be processed
     // at the end of a 60-minute cycle.
     int unitsToProcess = activeDevices.size() / 60;
-    long fiveMinAgo = getThisLaunchTms() - 5 * 60000;
-    long oneHourAgo = getThisLaunchTms() - 60 * 60000;
+    long fiveMinAgo = getThisLaunchTms() - TIME_MS_FIVE_MINUTE;
+    long oneHourAgo = getThisLaunchTms() - TIME_MS_ONE_HOUR;
     ACSUnit acsUnit = new ACSUnit(xapsCp, dbi.getAcs(), dbi.getSyslog());
 
     // this will force units which haven't been processed the last hour to
     // be processed again.
     Map<String, Long> oldDevices = sentSyslogMap.removeOld(oneHourAgo);
-    logger.info(
-        "ActiveDeviceDetection: Have removed "
-            + oldDevices.size()
-            + " devices from sentSyslog map - should be approx 1/60 of activeDevices.size() ("
-            + activeDevices.size()
-            + ")");
+    logger.info("Have removed {} devices from sentSyslog map(should be approx 1/60 of {} activeDevices)",  oldDevices.size(), activeDevices.size());
 
     int processCount = 0;
     int loggedCount = 0;
@@ -80,30 +77,21 @@ public class ActiveDeviceDetection extends TaskDefaultImpl {
               null,
               null);
         } else {
-          logger.info(
-              "ActiveDeviceDetection: Stun request from "
-                  + address
-                  + ", but the address was not recorded in Fusion - consider adding A-flag to UDPConnectionRequestAddress in all unittypes");
+          logger.info("Stun request from {}, but the address was not recorded (consider adding A-flag to UDPConnectionRequestAddress in all unittypes)",
+                  address);
         }
       }
     }
-    logger.info(
-        "ActiveDeviceDetection: Processed "
-            + processCount
-            + " active device syslog messages to the syslog server. Sent "
-            + loggedCount
-            + " syslog messages. SentSyslogMap.size() = "
-            + sentSyslogMap.size()
-            + ", ActiveDevices.size() = "
-            + activeDevices.size());
+    logger.info("Processed {} syslog messages. Sent {} syslog messages. SentSyslogMap: {} , ActiveDevices: {}",
+            processCount, loggedCount, sentSyslogMap.size(), activeDevices.size());
+    
+    //meterRegistry.gauge("stun.active.devices", activeDevices.size());
+    //meterRegistry.counter("stun.syslog.sent").increment(loggedCount);
   }
 
   private void logInactiveDevices(TimestampMap activeDevices) throws SQLException {
-    long tooOldTms = getThisLaunchTms() - 3600 * 1000;
-    logger.info(
-        "Will check for inactive STUN clients (map size before check: "
-            + activeDevices.size()
-            + ")");
+    long tooOldTms = getThisLaunchTms() - TIME_MS_ONE_HOUR;
+    logger.info( "Will check for inactive STUN clients (map size before check: {})", activeDevices.size());
     Map<String, Long> tooOldMap = activeDevices.removeOldSync(tooOldTms);
     for (Entry<String, Long> entry : tooOldMap.entrySet()) {
       String address = entry.getKey();
@@ -117,73 +105,49 @@ public class ActiveDeviceDetection extends TaskDefaultImpl {
         boolean active = false;
         List<SyslogEntry> entries = syslog.read(sf, dbi.getAcs());
         for (SyslogEntry sentry : entries) {
-          String c = sentry.getContent();
+          String content = sentry.getContent();
           if (sentry.getFacility() < SyslogConstants.FACILITY_SHELL
-              && !c.contains(Heartbeat.MISSING_HEARTBEAT_ID)
-              && !c.startsWith("StunMsg/TR-111")) {
-            logger.info(
-                "ActivceDeviceDetection: Found syslog activity for unit "
-                    + unit.getId()
-                    + " at "
-                    + sentry.getCollectorTimestamp()
-                    + " : "
-                    + sentry.getContent());
+              && !content.contains(Heartbeat.MISSING_HEARTBEAT_ID)
+              && !content.startsWith("StunMsg/TR-111")) {
+            logger.info("Found syslog activity for unit {} at {} : {}",
+                    unit.getId(),  sentry.getCollectorTimestamp(), content);
             active = true;
             break;
           }
         }
         if (active) {
-          logger.info(
-              "ActiveDeviceDection: No STUN request from "
-                  + address
-                  + " (unit: "
-                  + unit.getId()
-                  + ") since "
-                  + new Date(tooOldTms));
+          logger.info("No STUN request from {} (unit: {}) since {} ",
+                  address, unit.getId(), toDatetime(tooOldTms));
           SyslogClient.info(
               unit.getId(),
-              "StunMsg/TR-111: No request from "
-                  + address
-                  + " since "
-                  + new Date(tooOldTms)
-                  + " - but device has been active since then",
+              "StunMsg/TR-111: No request from " + address + " since " + toDatetime(tooOldTms) + " - but device has been active since then",
               dbi.getSyslog());
         } else {
-          logger.info(
-              "ActiveDeviceDection: No STUN request from "
-                  + address
-                  + " (unit: "
-                  + unit.getId()
-                  + ") since "
-                  + new Date(tooOldTms)
-                  + " - but the device may not be active");
+          logger.info("No STUN request from {} (unit: {}) since {}. Device may not be active",
+                  address, unit.getId(), toDatetime(tooOldTms));
         }
       } else {
-        logger.info(
-            "ActiveDeviceDection: No STUN request from "
-                + address
-                + " for more than 60 minutes (the device may have changed IP).");
+        logger.info("No STUN request from {} for more than 60 minutes.", address);
       }
     }
-    logger.info(
-        "ActiveDeviceDection: Have removed "
-            + tooOldMap.size()
-            + " devices from active devices map");
+    logger.info("Have removed {} devices from active devices map", tooOldMap.size());
   }
 
   @Override
   public void runImpl() throws Throwable {
     TimestampMap activeDevices = StunServer.getActiveStunClients();
-    logInactiveDevices(
-        activeDevices); // will clean out old and inactive devices from activeDevices map (and log
-    // new inactive devices)
-    logActiveDevices(
-        activeDevices,
-        activeDevicesLogged); // will update list of devices logged to syslog (and log new ones)
+    // will clean out old and inactive devices from activeDevices map (and log new inactive devices)
+    logInactiveDevices(activeDevices);
+    // will update list of devices logged to syslog (and log new ones)
+    logActiveDevices(activeDevices,activeDevicesLogged);
   }
 
   @Override
   public Logger getLogger() {
     return logger;
+  }
+
+  private String toDatetime(long millis){
+    return new Date(millis).toString();
   }
 }

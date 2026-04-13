@@ -9,7 +9,9 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,6 +22,7 @@ import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
@@ -35,6 +38,15 @@ public class Kick {
   public static class KickResponse {
     private final boolean kicked;
     private String message;
+  }
+
+  private final Map<String, RestClient> clientCache = new ConcurrentHashMap<>();
+  private final PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+
+  public Kick() {
+
+    connectionManager.setMaxTotal(500);
+    connectionManager.setDefaultMaxPerRoute(50);
   }
 
   private static final Kick kickSingleton = new Kick();
@@ -135,28 +147,19 @@ public class Kick {
   protected KickResponse kickUsingTCP(Unit unit, String crUrl, String crPass, String crUser)
       throws MalformedURLException {
 
-    RestClient restClient = null;
+    RestClient restClient = getOrCreateClient(crUser, crPass);
     HttpStatusCode statusCode;
-    if (crUser != null && crPass != null) {
-      try {
-        restClient = createSecureClient(crUrl, crUser, crPass);
-        log.debug(unit.getId() + ": kicking with authentication (digest/basic)");
-      } catch (MalformedURLException e) {
-        return new KickResponse(false, "Invalid URL: " + crUrl);
-      }
-    } else {
-      // Usa o cliente padrão, sem overhead de credenciais
-      restClient = defaultRestClient;
-      log.debug(unit.getId() + ": kicking without authentication");
-    }
+
     try {
       ResponseEntity<Void> response = restClient.get()
               .uri(crUrl)
               .retrieve()
               .toBodilessEntity();
+
       statusCode = response.getStatusCode();
+
     } catch (Exception ex) {
-      log.warn(unit.getId() + " did not respond, an error has occured: ", ex);
+      log.warn("{} TCP/HTTP-kick failed: {}", unit.getId(), ex.getMessage());
       return new KickResponse(
           false,
           "TCP/HTTP-kick to "
@@ -165,8 +168,7 @@ public class Kick {
               + ex.getMessage());
     }
     if (statusCode.is2xxSuccessful()) {
-      log.debug(
-          unit.getId() + " responded with HTTP " + statusCode + ", indicating a successful kick");
+      log.debug("{} TCP/HTTP-kick respond status {}. Success kick", unit.getId(), statusCode);
       return new KickResponse(
           true,
           "TCP/HTTP-kick to "
@@ -175,8 +177,7 @@ public class Kick {
               + statusCode
               + ", indicating success");
     } else {
-      log.warn(
-          unit.getId() + " responded with HTTP " + statusCode + ", indicating a unsuccessful kick");
+      log.warn("{} TCP/HTTP-kick respond status {}. Unsuccess kick", unit.getId(), statusCode);
       if (statusCode.value() == HttpStatus.SC_FORBIDDEN || statusCode.value() == HttpStatus.SC_UNAUTHORIZED) {
         return new KickResponse(
             false,
@@ -227,7 +228,7 @@ public class Kick {
       for (int i = 0; i < 3; i++) {
         MessageStack.push(packet);
       }
-      log.debug(unit.getId() + " has been kicked using UDP (TR-111) method to " + udpCrUrl);
+      log.debug("{} initiated UDP kick (TR-111) to {}", unit.getId(), udpCrUrl);
       return new KickResponse(true, "UDP kick to " + udpCrUrl + " was initiated");
     } catch (Throwable t) {
       log.error(unit.getId() + " UDP kick to " + udpCrUrl + " failed", t);
@@ -249,32 +250,35 @@ public class Kick {
         "No keyroot found for unit " + u.getId() + ", probably because no parameters are defined");
   }
 
-  private RestClient createSecureClient(String urlStr, String username, String password) throws MalformedURLException {
-    URL url = new URL(urlStr);
+  private RestClient getOrCreateClient(String username, String password) {
+    if (username == null || password == null) {
+      return defaultRestClient;
+    }
 
-    // Configuração de Timeout moderna
-    RequestConfig config = RequestConfig.custom()
-            .setConnectTimeout(Timeout.ofMilliseconds(20000))
-            .setResponseTimeout(Timeout.ofMilliseconds(20000))
-            .build();
+    String cacheKey = username + ":" + password;
 
-    // Configura o provedor de credenciais (Suporta Basic e Digest automaticamente no HC5)
-    BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
-    credsProvider.setCredentials(
-            new AuthScope(url.getHost(), url.getPort() == -1 ? 80 : url.getPort()),
-            new UsernamePasswordCredentials(username, password.toCharArray())
-    );
+    return clientCache.computeIfAbsent(cacheKey, key -> {
+      log.info("Creating new RestClient for user: {}", username);
 
-    // Cria o cliente Apache 5
-    CloseableHttpClient httpClient = HttpClients.custom()
-            .setDefaultRequestConfig(config)
-            .setDefaultCredentialsProvider(credsProvider)
-            .build();
+      BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
+      credsProvider.setCredentials(
+              new AuthScope(null, -1), // AuthScope global
+              new UsernamePasswordCredentials(username, password.toCharArray())
+      );
 
-    // Retorna o RestClient do Spring configurado com este cliente
-    return RestClient.builder()
-            .requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient))
-            .build();
+      CloseableHttpClient httpClient = HttpClients.custom()
+              .setConnectionManager(connectionManager)
+              .setDefaultCredentialsProvider(credsProvider)
+              .setDefaultRequestConfig(RequestConfig.custom()
+                      .setConnectTimeout(Timeout.ofMilliseconds(20000))
+                      .setResponseTimeout(Timeout.ofMilliseconds(20000))
+                      .build())
+              .build();
+
+      return RestClient.builder()
+              .requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient))
+              .build();
+    });
   }
 
 

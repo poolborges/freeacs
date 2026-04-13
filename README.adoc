@@ -17,12 +17,16 @@ Shell CLI
 Stun
 
 * STACK: Springboot
+* PORT: 8087
+* ENDPOINT: /stun
+** /stun/actuator/stun-clients?onlyStats=true
+** http://localhost:8087/stun/actuator/stun-clients?onlyStats=true
 
 Syslog Server
 
 * STACK: Springboot
 * LOCAL PORT: 8086 (HTTP), 9116 (UDP)
-* BASE PATH: /syslog
+* ENDPOINT: /syslog
 ** http://localhost:8086/syslog
 ** upd://localhost:9116
 
@@ -31,7 +35,7 @@ TR069
 
 * STACK: Springboot
 * LOCAL PORT: 8085
-* BASE PATH: /tr069
+* ENDPOINT: /tr069
 
 
 web
